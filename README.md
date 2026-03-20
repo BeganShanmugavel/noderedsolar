@@ -15,9 +15,11 @@ Install the following before running:
 
 - **Python 3.10+**
 - **Node.js 18+ / npm**
-- **MySQL** (or XAMPP MySQL/phpMyAdmin)
+- **XAMPP** (MySQL + phpMyAdmin)
 - **Mosquitto MQTT broker**
 - **Node-RED**
+
+> This project is configured to use **XAMPP MySQL/phpMyAdmin** for database management (instead of MySQL Workbench).
 
 ---
 
@@ -33,16 +35,21 @@ README.md
 
 ---
 
-## 3) Database Setup (MySQL / XAMPP)
+## 3) Database Setup (XAMPP MySQL / phpMyAdmin)
 
-1. Start MySQL (XAMPP control panel or local service).
-2. Create schema/tables:
-
-```bash
-mysql -u root -p < database/schema.sql
-```
+1. Open **XAMPP Control Panel**.
+2. Start **Apache** and **MySQL**.
+3. Open phpMyAdmin: `http://localhost/phpmyadmin`.
+4. Click **Import** and upload: `database/schema.sql`.
+5. Import the file into a new or existing server connection (default XAMPP root user).
 
 This creates database: `solar_monitoring` and required tables.
+
+### Optional CLI import (also using XAMPP MySQL)
+
+```bash
+mysql -h 127.0.0.1 -P 3306 -u root < database/schema.sql
+```
 
 ---
 
@@ -165,7 +172,7 @@ curl -X POST http://localhost:5000/api/auth/bootstrap-admin \
 
 Start services in this order:
 
-1. MySQL
+1. XAMPP (**Apache + MySQL**)
 2. Mosquitto
 3. Flask backend (`python app.py`)
 4. Node-RED flow deployed
@@ -183,8 +190,9 @@ Then login and open dashboard.
   - Verify backend subscribed to `solar/+/telemetry`.
 
 - **DB connection errors**
-  - Confirm MySQL credentials/env vars.
-  - Ensure `solar_monitoring` database exists.
+  - Confirm XAMPP MySQL is running (Control Panel).
+  - Confirm DB env vars (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`).
+  - Ensure `solar_monitoring` database exists in phpMyAdmin.
 
 - **401 unauthorized**
   - Login first and ensure token is stored in browser local storage.
