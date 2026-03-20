@@ -26,12 +26,26 @@ export default function Login() {
     }
   };
 
+  const loginAs = (role) => {
+    if (role === 'admin') {
+      setEmail('admin@solar.local');
+      setPassword('Admin@123');
+    } else {
+      setEmail('user@solar.local');
+      setPassword('User@123');
+    }
+  };
+
   return (
     <div className="login-screen">
       <div className="pulse-orb" />
       <form className="glass login-card" onSubmit={onSubmit}>
         <h2>Solar AI Platform Login</h2>
-        <p className="subtitle">Secure access to all monitoring pages.</p>
+        <p className="subtitle">Choose Admin/User demo credentials or enter your own.</p>
+        <div className="role-switch">
+          <button type="button" className="btn-secondary" onClick={() => loginAs('admin')}>Use Admin</button>
+          <button type="button" className="btn-secondary" onClick={() => loginAs('user')}>Use User</button>
+        </div>
         <input placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         <input placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         {error && <p className="error-msg">{error}</p>}

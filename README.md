@@ -163,10 +163,43 @@ curl -X POST http://localhost:5000/api/auth/bootstrap-admin \
 ```
 
 2. Login from UI with admin credentials.
+
+If login says **Invalid credentials**, reset admin password:
+
+```bash
+curl -X POST http://localhost:5000/api/auth/reset-admin \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "bootstrap_key":"SOLAR_ADMIN_SETUP",
+    "email":"admin@solar.local",
+    "new_password":"Admin@123"
+  }'
+```
+
+2. Login from UI with admin credentials.
 3. Use **Admin Panel** to create user accounts.
 4. Users then login only (no open self-registration).
 
 ---
+
+
+### Optional: prepare both Admin + User demo logins
+
+```bash
+curl -X POST http://localhost:5000/api/auth/bootstrap-demo-users \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "bootstrap_key":"SOLAR_ADMIN_SETUP",
+    "admin_email":"admin@solar.local",
+    "admin_password":"Admin@123",
+    "user_email":"user@solar.local",
+    "user_password":"User@123"
+  }'
+```
+
+Then you can login quickly as:
+- Admin: `admin@solar.local` / `Admin@123`
+- User: `user@solar.local` / `User@123`
 
 ## 9) Quick Run Order (Recommended)
 

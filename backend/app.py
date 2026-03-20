@@ -12,6 +12,7 @@ from maintenance_alerts import create_alert
 from panel_health import analyze_panel_health
 from financials import calculate_financials
 from weather_service import get_weather_snapshot
+from advanced_ai import derive_ai_insights
 
 app = Flask(__name__)
 CORS(app)
@@ -80,6 +81,34 @@ def bootstrap_admin():
     return jsonify({'status': 'admin_created'}), 201
 
 
+
+
+@app.post('/api/auth/reset-admin')
+def reset_admin():
+    body = request.json or {}
+    key = body.get('bootstrap_key')
+    email = body.get('email', 'admin@solar.local')
+    new_password = body.get('new_password')
+
+    if key != 'SOLAR_ADMIN_SETUP':
+        return jsonify({'error': 'Invalid bootstrap key'}), 403
+    if not new_password:
+        return jsonify({'error': 'new_password required'}), 400
+
+    with cursor(commit=True) as cur:
+        cur.execute('SELECT id FROM users WHERE email=%s AND role=%s', (email, 'admin'))
+        existing = cur.fetchone()
+        if existing:
+            cur.execute('UPDATE users SET password_hash=%s WHERE id=%s', (hash_password(new_password), existing['id']))
+            return jsonify({'status': 'admin_password_reset', 'email': email})
+
+        cur.execute(
+            'INSERT INTO users(name,email,password_hash,role) VALUES (%s,%s,%s,%s)',
+            ('Platform Admin', email, hash_password(new_password), 'admin'),
+        )
+
+    return jsonify({'status': 'admin_created', 'email': email}), 201
+
 @app.post('/api/auth/login')
 def login():
     body = request.json or {}
@@ -97,6 +126,37 @@ def login():
 
     token = generate_token(user)
     return jsonify({'token': token, 'user': {'id': user['id'], 'name': user['name'], 'email': user['email'], 'role': user['role']}})
+
+
+
+
+@app.post('/api/auth/bootstrap-demo-users')
+def bootstrap_demo_users():
+    body = request.json or {}
+    if body.get('bootstrap_key') != 'SOLAR_ADMIN_SETUP':
+        return jsonify({'error': 'Invalid bootstrap key'}), 403
+
+    admin_email = body.get('admin_email', 'admin@solar.local')
+    user_email = body.get('user_email', 'user@solar.local')
+    admin_password = body.get('admin_password', 'Admin@123')
+    user_password = body.get('user_password', 'User@123')
+
+    with cursor(commit=True) as cur:
+        cur.execute('SELECT id FROM users WHERE email=%s', (admin_email,))
+        existing_admin = cur.fetchone()
+        if existing_admin:
+            cur.execute('UPDATE users SET password_hash=%s, role=%s WHERE id=%s', (hash_password(admin_password), 'admin', existing_admin['id']))
+        else:
+            cur.execute('INSERT INTO users(name,email,password_hash,role) VALUES (%s,%s,%s,%s)', ('Demo Admin', admin_email, hash_password(admin_password), 'admin'))
+
+        cur.execute('SELECT id FROM users WHERE email=%s', (user_email,))
+        existing_user = cur.fetchone()
+        if existing_user:
+            cur.execute('UPDATE users SET password_hash=%s, role=%s WHERE id=%s', (hash_password(user_password), 'user', existing_user['id']))
+        else:
+            cur.execute('INSERT INTO users(name,email,password_hash,role) VALUES (%s,%s,%s,%s)', ('Demo User', user_email, hash_password(user_password), 'user'))
+
+    return jsonify({'status': 'demo_users_ready', 'admin_email': admin_email, 'user_email': user_email})
 
 
 @app.post('/api/auth/register')
@@ -157,6 +217,7 @@ def dashboard(site_identifier):
     health = analyze_panel_health(window[-1])
     financial = calculate_financials(window[-1]['actual_generation'])
     advanced_metrics = compute_advanced_metrics(window, predicted)
+    ai_insights = derive_ai_insights(window)
 
     alerts = []
     if anomaly['is_anomaly']:
@@ -181,11 +242,23 @@ def dashboard(site_identifier):
             'panel_health': health,
             'financials': financial,
             'advanced_metrics': advanced_metrics,
+            'ai_insights': ai_insights,
             'weather': get_weather_snapshot(plant['weather_location']),
             'alerts': alerts,
             'carbon_offset_kg': round(window[-1]['actual_generation'] * 0.7, 2),
         }
     )
+
+
+
+
+@app.get('/api/ai-insights/<site_identifier>')
+@token_required
+def ai_insights(site_identifier):
+    window = telemetry_window(site_identifier)
+    if not window:
+        return jsonify({'error': 'No telemetry found'}), 404
+    return jsonify(derive_ai_insights(window))
 
 
 @app.get('/api/alerts/<site_identifier>')

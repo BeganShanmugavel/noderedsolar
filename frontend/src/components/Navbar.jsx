@@ -5,6 +5,7 @@ const links = [
   ['Dashboard', '/dashboard'],
   ['Analytics', '/performance'],
   ['AI Prediction', '/ai-analysis'],
+  ['Planner', '/operations-planner'],
   ['Financial', '/financials'],
   ['Alerts', '/alerts'],
 ];

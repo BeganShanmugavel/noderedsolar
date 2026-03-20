@@ -6,6 +6,7 @@ const items = [
   ['Plant Performance', '/performance'],
   ['Panel Health', '/panel-health'],
   ['AI Prediction', '/ai-analysis'],
+  ['Operations Planner', '/operations-planner'],
   ['Financial Analytics', '/financials'],
   ['Maintenance Alerts', '/alerts'],
   ['Digital Twin', '/digital-twin'],
