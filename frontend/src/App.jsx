@@ -32,6 +32,7 @@ export default function App() {
                 element={route.public ? route.element : <ProtectedRoute adminOnly={route.adminOnly}>{route.element}</ProtectedRoute>}
               />
             ))}
+            <Route path="*" element={<Navigate to={user ? '/dashboard' : '/login'} replace />} />
           </Routes>
           {showShell && <Footer />}
         </main>
