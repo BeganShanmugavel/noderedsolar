@@ -39,7 +39,20 @@ export default function Dashboard() {
       <div className="glass" style={{ marginTop: 12 }}>
         <h3>User Details</h3>
         <p><strong>Name:</strong> {user?.name || '--'} | <strong>Role:</strong> {user?.role || '--'}</p>
-        <p><strong>Email:</strong> {user?.email || '--'} | <strong>Phone:</strong> {user?.phone || '--'} | <strong>Designation:</strong> {user?.designation || '--'}</p>
+        <p><strong>Email:</strong> {user?.email || '--'} | <strong>Phone:</strong> {user?.phone || '--'}</p>
+      </div>
+      <div className="glass" style={{ marginTop: 12 }}>
+        <h3>Panel Analysis Details</h3>
+        <p>
+          <strong>Site:</strong> {data?.plant_profile?.site_identifier || data?.served_site_identifier || '--'} |
+          <strong> Location:</strong> {data?.plant_profile?.location || '--'} |
+          <strong> Capacity:</strong> {data?.plant_profile?.capacity_kw ?? '--'} kW
+        </p>
+        <p>
+          <strong>Panel Count:</strong> {data?.plant_profile?.panel_count ?? '--'} |
+          <strong> Panel Type:</strong> {data?.plant_profile?.panel_type || '--'} |
+          <strong> Forecast Next Hr:</strong> {data?.advanced_metrics?.forecast_next_hour_generation ?? '--'} kWh
+        </p>
       </div>
       <DashboardCards stats={stats} />
       <div className="card-grid">

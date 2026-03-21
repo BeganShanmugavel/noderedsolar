@@ -361,8 +361,20 @@ def dashboard(site_identifier):
         alerts.append(create_alert(site_identifier, 'Maintenance', 'Panel cleaning required', 'Medium'))
 
     with cursor() as cur:
-        cur.execute('SELECT weather_location FROM plants WHERE site_identifier=%s', (site_identifier,))
-        plant = cur.fetchone() or {'weather_location': 'Unknown'}
+        cur.execute(
+            '''SELECT site_identifier, location, capacity_kw, panel_count, panel_type, weather_location
+               FROM plants
+               WHERE site_identifier=%s''',
+            (site_identifier,),
+        )
+        plant = cur.fetchone() or {
+            'site_identifier': site_identifier,
+            'location': 'Unknown',
+            'capacity_kw': None,
+            'panel_count': None,
+            'panel_type': 'Unknown',
+            'weather_location': 'Unknown',
+        }
 
     weather_data = get_weather_snapshot(plant['weather_location'])
 
@@ -380,6 +392,7 @@ def dashboard(site_identifier):
             'ai_insights': ai_insights,
             'weather': weather_data,
             'weather_analysis': build_weather_analysis(weather_data),
+            'plant_profile': plant,
             'alerts': alerts,
             'carbon_offset_kg': round(window[-1]['actual_generation'] * 0.7, 2),
             'served_site_identifier': site_identifier,
