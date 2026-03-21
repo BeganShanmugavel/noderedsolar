@@ -41,9 +41,9 @@ README.md
 2. Start **Apache** and **MySQL**.
 3. Open phpMyAdmin: `http://localhost/phpmyadmin`.
 4. Click **Import** and upload: `database/schema.sql`.
-5. Import the file into a new or existing server connection (default XAMPP root user).
+5. Import the file from the phpMyAdmin server home (no manual DB selection required).
 
-This creates database: `solar_monitoring` and required tables.
+This creates database: `solar_monitoring` and required tables. The schema uses fully-qualified table names (`solar_monitoring.<table>`) so it works even when phpMyAdmin shows "No database selected" for `CREATE DATABASE`/`USE` statements.
 
 ### Optional CLI import (also using XAMPP MySQL)
 
@@ -200,6 +200,9 @@ curl -X POST http://localhost:5000/api/auth/bootstrap-demo-users \
 Then you can login quickly as:
 - Admin: `admin@solar.local` / `Admin@123`
 - User: `user@solar.local` / `User@123`
+
+Default seeded admin from schema import:
+- `admin@solar.local` / `Admin@123`
 
 ## 9) Quick Run Order (Recommended)
 

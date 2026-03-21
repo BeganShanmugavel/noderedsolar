@@ -1,7 +1,6 @@
 CREATE DATABASE IF NOT EXISTS solar_monitoring;
-USE solar_monitoring;
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS solar_monitoring.users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(120) NOT NULL,
   email VARCHAR(160) UNIQUE NOT NULL,
@@ -10,7 +9,7 @@ CREATE TABLE users (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE plants (
+CREATE TABLE IF NOT EXISTS solar_monitoring.plants (
   id INT AUTO_INCREMENT PRIMARY KEY,
   site_identifier VARCHAR(30) UNIQUE NOT NULL,
   location VARCHAR(100) NOT NULL,
@@ -20,7 +19,7 @@ CREATE TABLE plants (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE telemetry_logs (
+CREATE TABLE IF NOT EXISTS solar_monitoring.telemetry_logs (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   site_identifier VARCHAR(30) NOT NULL,
   timestamp DATETIME NOT NULL,
@@ -33,7 +32,7 @@ CREATE TABLE telemetry_logs (
   INDEX idx_site_time (site_identifier, timestamp)
 );
 
-CREATE TABLE ai_analysis_logs (
+CREATE TABLE IF NOT EXISTS solar_monitoring.ai_analysis_logs (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   site_identifier VARCHAR(30) NOT NULL,
   timestamp DATETIME NOT NULL,
@@ -44,7 +43,7 @@ CREATE TABLE ai_analysis_logs (
   fault_prediction VARCHAR(120)
 );
 
-CREATE TABLE expenses (
+CREATE TABLE IF NOT EXISTS solar_monitoring.expenses (
   id INT AUTO_INCREMENT PRIMARY KEY,
   site_identifier VARCHAR(30) NOT NULL,
   date DATE NOT NULL,
@@ -52,7 +51,7 @@ CREATE TABLE expenses (
   note VARCHAR(255)
 );
 
-CREATE TABLE alerts (
+CREATE TABLE IF NOT EXISTS solar_monitoring.alerts (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   site_identifier VARCHAR(30) NOT NULL,
   timestamp DATETIME NOT NULL,
@@ -60,3 +59,7 @@ CREATE TABLE alerts (
   severity ENUM('Low', 'Medium', 'Critical') NOT NULL,
   message VARCHAR(255) NOT NULL
 );
+
+INSERT INTO solar_monitoring.users (name, email, password_hash, role)
+VALUES ('Default Admin', 'admin@solar.local', 'Admin@123', 'admin')
+ON DUPLICATE KEY UPDATE role='admin';

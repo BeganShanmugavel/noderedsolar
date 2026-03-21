@@ -16,7 +16,12 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password: str, password_hash: str) -> bool:
-    return check_password_hash(password_hash, password)
+    # Backward-compatible path for seeded/plain values in dev setups.
+    if not password_hash:
+        return False
+    if password_hash.startswith('pbkdf2:') or password_hash.startswith('scrypt:'):
+        return check_password_hash(password_hash, password)
+    return password == password_hash
 
 
 def generate_token(user: dict) -> str:
