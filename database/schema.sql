@@ -59,3 +59,7 @@ CREATE TABLE IF NOT EXISTS solar_monitoring.alerts (
   severity ENUM('Low', 'Medium', 'Critical') NOT NULL,
   message VARCHAR(255) NOT NULL
 );
+
+INSERT INTO solar_monitoring.users (name, email, password_hash, role)
+VALUES ('Default Admin', 'admin@solar.local', 'Admin@123', 'admin')
+ON DUPLICATE KEY UPDATE role='admin';

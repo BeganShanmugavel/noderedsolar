@@ -201,6 +201,9 @@ Then you can login quickly as:
 - Admin: `admin@solar.local` / `Admin@123`
 - User: `user@solar.local` / `User@123`
 
+Default seeded admin from schema import:
+- `admin@solar.local` / `Admin@123`
+
 ## 9) Quick Run Order (Recommended)
 
 Start services in this order:
