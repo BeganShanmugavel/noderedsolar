@@ -1,33 +1,43 @@
+import { useEffect, useMemo, useState } from 'react';
+import { getDashboard } from '../services/api';
+
 export default function Performance() {
-  const blocks = [
-    ['Plant Uptime', '99.2%'],
-    ['Avg Irradiation', '458 W/m²'],
-    ['Voltage Stability', '96.4%'],
-    ['Fleet Efficiency', '91.1%'],
-  ];
+  const [data, setData] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    getDashboard().then(setData).catch((e) => setError(e.message));
+  }, []);
+
+  const metrics = useMemo(() => {
+    const w = data?.window || [];
+    if (!w.length) return null;
+    const avg = (arr) => (arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(2);
+    return {
+      uptime: data?.advanced_metrics?.stability_score ?? '--',
+      irradiation: avg(w.map((x) => Number(x.irradiation || 0))),
+      voltage: avg(w.map((x) => Number(x.voltage || 0))),
+      efficiency: data?.efficiency?.efficiency?.toFixed?.(2) ?? '--',
+    };
+  }, [data]);
 
   return (
     <section>
       <div className="hero-banner glass">
         <h1>Plant Performance</h1>
-        <p>Track electrical and environmental performance with trend-ready KPI groups.</p>
+        <p>Realtime performance derived from Node-RED simulator telemetry windows.</p>
       </div>
-
-      <div className="content-grid">
-        <div className="glass">
-          <h3>Operational KPI Grid</h3>
-          <div className="card-grid">
-            {blocks.map(([k, v]) => <div className="card" key={k}><h4>{k}</h4><p>{v}</p></div>)}
-          </div>
-        </div>
-        <div className="glass">
-          <h3>Performance Insights</h3>
-          <ul>
-            <li>Generation tracks irradiation in expected range.</li>
-            <li>Voltage variance remains within inverter tolerance.</li>
-            <li>No prolonged efficiency degradation window detected.</li>
-          </ul>
-        </div>
+      {error && <p className="error-msg">{error}</p>}
+      <div className="card-grid">
+        <div className="glass card"><h3>Plant Uptime Score</h3><p>{metrics?.uptime ?? '--'}%</p></div>
+        <div className="glass card"><h3>Avg Irradiation</h3><p>{metrics?.irradiation ?? '--'} W/m²</p></div>
+        <div className="glass card"><h3>Avg Voltage</h3><p>{metrics?.voltage ?? '--'} V</p></div>
+        <div className="glass card"><h3>Current Efficiency</h3><p>{metrics?.efficiency ?? '--'}%</p></div>
+      </div>
+      <div className="glass">
+        <h3>Live Analysis</h3>
+        <p>Total telemetry points analysed: {data?.window?.length ?? 0}</p>
+        <p>Fault prediction: {data?.fault_prediction || 'No immediate fault trend'}</p>
       </div>
     </section>
   );

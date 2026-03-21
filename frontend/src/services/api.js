@@ -33,3 +33,10 @@ export async function getDashboard(site = 'SOFT-1001') {
   if (!res.ok) throw new Error(data.error || 'Unable to fetch dashboard');
   return data;
 }
+
+export async function getSiteAlerts(site = 'SOFT-1001') {
+  const res = await fetch(`${API_BASE}/alerts/${site}`, { headers: headers() });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Unable to fetch alerts');
+  return data;
+}

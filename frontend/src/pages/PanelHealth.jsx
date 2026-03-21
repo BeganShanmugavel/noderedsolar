@@ -1,22 +1,36 @@
+import { useEffect, useMemo, useState } from 'react';
 import Heatmap from '../components/Heatmap';
+import { getDashboard } from '../services/api';
 
 export default function PanelHealth() {
-  const demo = Array.from({ length: 20 }, (_, i) => ({ panel_id: i + 1, generation: 20 + (i % 6) * 3, isWeak: i % 7 === 0 }));
+  const [data, setData] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    getDashboard().then(setData).catch((e) => setError(e.message));
+  }, []);
+
+  const panels = useMemo(() => {
+    const p = data?.latest?.panels || [];
+    const weak = new Set(data?.panel_health?.weak_panels || []);
+    return p.map((x) => ({ ...x, isWeak: weak.has(x.panel_id) }));
+  }, [data]);
 
   return (
     <section>
       <div className="hero-banner glass">
         <h1>Panel Health Matrix</h1>
-        <p>Weak module detection and comparative panel output analysis.</p>
+        <p>Panel analysis from actual simulator payload panels[] data.</p>
       </div>
+      {error && <p className="error-msg">{error}</p>}
       <div className="content-grid">
-        <Heatmap panels={demo} />
+        <Heatmap panels={panels} />
         <div className="glass">
           <h3>Health Highlights</h3>
           <ul>
-            <li>3 panels under 70% of plant average.</li>
-            <li>String B shows highest consistency.</li>
-            <li>Recommend inspection of junction box in row 2.</li>
+            <li>Plant average generation: {data?.panel_health?.plant_average?.toFixed?.(2) ?? '--'}</li>
+            <li>Weak panel count: {data?.panel_health?.weak_panels?.length ?? 0}</li>
+            <li>Telemetry window analyzed: {data?.window?.length ?? 0} records</li>
           </ul>
         </div>
       </div>

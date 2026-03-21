@@ -1,3 +1,4 @@
+import json
 from statistics import mean
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -29,6 +30,23 @@ def telemetry_window(site_identifier):
         )
         rows = cur.fetchall()
     return list(reversed(rows))
+
+
+
+
+def hydrate_latest_telemetry(row):
+    if not row:
+        return row
+    payload = row.get('raw_payload')
+    if not payload:
+        return row
+    try:
+        parsed = json.loads(payload) if isinstance(payload, str) else payload
+        if isinstance(parsed, dict):
+            row = {**row, **parsed}
+    except Exception:
+        pass
+    return row
 
 
 def compute_advanced_metrics(window, predicted):
@@ -214,7 +232,8 @@ def dashboard(site_identifier):
         efficiencies.append((row['actual_generation'] / local_pred) * 100)
 
     fault = predict_fault(efficiencies)
-    health = analyze_panel_health(window[-1])
+    latest_hydrated = hydrate_latest_telemetry(window[-1])
+    health = analyze_panel_health(latest_hydrated)
     financial = calculate_financials(window[-1]['actual_generation'])
     advanced_metrics = compute_advanced_metrics(window, predicted)
     ai_insights = derive_ai_insights(window)
@@ -233,7 +252,7 @@ def dashboard(site_identifier):
 
     return jsonify(
         {
-            'latest': window[-1],
+            'latest': latest_hydrated,
             'window': window,
             'predicted_generation': predicted,
             'efficiency': diagnosis,
