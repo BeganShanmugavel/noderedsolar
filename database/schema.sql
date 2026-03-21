@@ -17,7 +17,9 @@ CREATE TABLE IF NOT EXISTS solar_monitoring.plants (
   location VARCHAR(100) NOT NULL,
   capacity_kw FLOAT NOT NULL,
   panel_count INT NOT NULL,
+  panel_type VARCHAR(80) DEFAULT 'Standard',
   weather_location VARCHAR(80) NOT NULL,
+  owner_user_id INT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

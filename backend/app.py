@@ -121,6 +121,8 @@ def bootstrap_admin():
                 body.get('name', 'Platform Admin'),
                 body['email'],
                 hash_password(body['password']),
+                body.get('phone'),
+                body.get('designation'),
                 'admin',
             ),
         )
@@ -150,7 +152,7 @@ def reset_admin():
 
         cur.execute(
             'INSERT INTO users(name,email,password_hash,phone,designation,role) VALUES (%s,%s,%s,%s,%s,%s)',
-            ('Platform Admin', email, hash_password(new_password), 'admin'),
+            ('Platform Admin', email, hash_password(new_password), None, None, 'admin'),
         )
 
     return jsonify({'status': 'admin_created', 'email': email}), 201
@@ -193,14 +195,14 @@ def bootstrap_demo_users():
         if existing_admin:
             cur.execute('UPDATE users SET password_hash=%s, role=%s WHERE id=%s', (hash_password(admin_password), 'admin', existing_admin['id']))
         else:
-            cur.execute('INSERT INTO users(name,email,password_hash,phone,designation,role) VALUES (%s,%s,%s,%s,%s,%s)', ('Demo Admin', admin_email, hash_password(admin_password), 'admin'))
+            cur.execute('INSERT INTO users(name,email,password_hash,phone,designation,role) VALUES (%s,%s,%s,%s,%s,%s)', ('Demo Admin', admin_email, hash_password(admin_password), None, None, 'admin'))
 
         cur.execute('SELECT id FROM users WHERE email=%s', (user_email,))
         existing_user = cur.fetchone()
         if existing_user:
             cur.execute('UPDATE users SET password_hash=%s, role=%s WHERE id=%s', (hash_password(user_password), 'user', existing_user['id']))
         else:
-            cur.execute('INSERT INTO users(name,email,password_hash,phone,designation,role) VALUES (%s,%s,%s,%s,%s,%s)', ('Demo User', user_email, hash_password(user_password), 'user'))
+            cur.execute('INSERT INTO users(name,email,password_hash,phone,designation,role) VALUES (%s,%s,%s,%s,%s,%s)', ('Demo User', user_email, hash_password(user_password), None, None, 'user'))
 
     return jsonify({'status': 'demo_users_ready', 'admin_email': admin_email, 'user_email': user_email})
 
@@ -209,19 +211,46 @@ def bootstrap_demo_users():
 @admin_required
 def register_user():
     body = request.json or {}
-    required = ['name', 'email', 'password']
+    required = [
+        'name',
+        'email',
+        'password',
+        'site_identifier',
+        'location',
+        'weather_location',
+        'capacity_kw',
+        'panel_count',
+        'panel_type',
+    ]
     if not all(body.get(k) for k in required):
-        return jsonify({'error': 'name, email, password required'}), 400
+        return jsonify({'error': 'Missing required registration details'}), 400
 
     with cursor(commit=True) as cur:
         cur.execute('SELECT id FROM users WHERE email=%s', (body['email'],))
         if cur.fetchone():
             return jsonify({'error': 'User already exists'}), 409
+        cur.execute('SELECT id FROM plants WHERE site_identifier=%s', (body['site_identifier'],))
+        if cur.fetchone():
+            return jsonify({'error': 'Plant site_identifier already exists'}), 409
         cur.execute(
             'INSERT INTO users(name,email,password_hash,phone,designation,role) VALUES (%s,%s,%s,%s,%s,%s)',
-            (body['name'], body['email'], hash_password(body['password']), body.get('phone'), body.get('designation'), body.get('role', 'user')),
+            (body['name'], body['email'], hash_password(body['password']), body.get('phone'), None, body.get('role', 'user')),
         )
-    return jsonify({'status': 'user_created'}), 201
+        user_id = cur.lastrowid
+        cur.execute(
+            '''INSERT INTO plants(site_identifier, location, capacity_kw, panel_count, panel_type, weather_location, owner_user_id)
+               VALUES (%s,%s,%s,%s,%s,%s,%s)''',
+            (
+                body['site_identifier'],
+                body['location'],
+                body['capacity_kw'],
+                body['panel_count'],
+                body['panel_type'],
+                body['weather_location'],
+                user_id,
+            ),
+        )
+    return jsonify({'status': 'user_and_plant_created'}), 201
 
 
 @app.post('/api/plants')
@@ -230,17 +259,63 @@ def register_plant():
     body = request.json
     with cursor(commit=True) as cur:
         cur.execute(
-            '''INSERT INTO plants(site_identifier, location, capacity_kw, panel_count, weather_location)
-               VALUES (%s,%s,%s,%s,%s)''',
+            '''INSERT INTO plants(site_identifier, location, capacity_kw, panel_count, panel_type, weather_location, owner_user_id)
+               VALUES (%s,%s,%s,%s,%s,%s,%s)''',
             (
                 body['site_identifier'],
                 body['location'],
                 body['capacity_kw'],
                 body['panel_count'],
+                body.get('panel_type', 'Standard'),
                 body['weather_location'],
+                body.get('owner_user_id'),
             ),
         )
     return jsonify({'status': 'registered'}), 201
+
+
+@app.get('/api/admin/user-details')
+@admin_required
+def admin_user_details():
+    with cursor() as cur:
+        cur.execute(
+            '''SELECT
+                   u.id AS user_id,
+                   u.name,
+                   u.email,
+                   u.phone,
+                   u.role,
+                   u.created_at AS user_created_at,
+                   p.site_identifier,
+                   p.location,
+                   p.capacity_kw,
+                   p.panel_count,
+                   p.panel_type,
+                   p.weather_location
+               FROM users u
+               LEFT JOIN plants p ON p.owner_user_id = u.id
+               ORDER BY u.created_at DESC'''
+        )
+        rows = cur.fetchall()
+
+    total_users = len(rows)
+    admin_count = sum(1 for row in rows if row.get('role') == 'admin')
+    user_count = total_users - admin_count
+    total_capacity = round(sum(float(row.get('capacity_kw') or 0) for row in rows), 2)
+    total_panels = sum(int(row.get('panel_count') or 0) for row in rows)
+
+    return jsonify(
+        {
+            'summary': {
+                'total_users': total_users,
+                'admin_count': admin_count,
+                'user_count': user_count,
+                'total_capacity_kw': total_capacity,
+                'total_panel_count': total_panels,
+            },
+            'users': rows,
+        }
+    )
 
 
 @app.get('/api/dashboard/<site_identifier>')
@@ -248,7 +323,18 @@ def register_plant():
 def dashboard(site_identifier):
     window = telemetry_window(site_identifier)
     if not window:
-        return jsonify({'error': 'No telemetry found'}), 404
+        with cursor() as cur:
+            cur.execute(
+                '''SELECT site_identifier
+                   FROM telemetry_logs
+                   ORDER BY timestamp DESC
+                   LIMIT 1'''
+            )
+            latest = cur.fetchone()
+        if not latest:
+            return jsonify({'error': 'No telemetry found'}), 404
+        site_identifier = latest['site_identifier']
+        window = telemetry_window(site_identifier)
 
     predicted = make_prediction(window) or window[-1]['actual_generation']
     diagnosis = diagnose_efficiency(window[-1]['actual_generation'], predicted)
@@ -275,8 +361,20 @@ def dashboard(site_identifier):
         alerts.append(create_alert(site_identifier, 'Maintenance', 'Panel cleaning required', 'Medium'))
 
     with cursor() as cur:
-        cur.execute('SELECT weather_location FROM plants WHERE site_identifier=%s', (site_identifier,))
-        plant = cur.fetchone() or {'weather_location': 'Unknown'}
+        cur.execute(
+            '''SELECT site_identifier, location, capacity_kw, panel_count, panel_type, weather_location
+               FROM plants
+               WHERE site_identifier=%s''',
+            (site_identifier,),
+        )
+        plant = cur.fetchone() or {
+            'site_identifier': site_identifier,
+            'location': 'Unknown',
+            'capacity_kw': None,
+            'panel_count': None,
+            'panel_type': 'Unknown',
+            'weather_location': 'Unknown',
+        }
 
     weather_data = get_weather_snapshot(plant['weather_location'])
 
@@ -294,8 +392,10 @@ def dashboard(site_identifier):
             'ai_insights': ai_insights,
             'weather': weather_data,
             'weather_analysis': build_weather_analysis(weather_data),
+            'plant_profile': plant,
             'alerts': alerts,
             'carbon_offset_kg': round(window[-1]['actual_generation'] * 0.7, 2),
+            'served_site_identifier': site_identifier,
         }
     )
 

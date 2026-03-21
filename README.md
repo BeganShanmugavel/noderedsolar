@@ -214,6 +214,9 @@ curl -X POST http://localhost:5000/api/auth/reset-admin \
 
 2. Login from UI with admin credentials.
 3. Use **Admin Panel** to create user accounts.
+   - Admin registration now captures both user and plant essentials:
+     - user: name, email, password, phone, role
+     - plant: site identifier, location, weather location, capacity (kW), panel count, panel type
 4. Users then login only (no open self-registration).
 
 ---

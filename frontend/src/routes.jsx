@@ -8,6 +8,7 @@ import AIAnalysis from './pages/AIAnalysis';
 import Financials from './pages/Financials';
 import Alerts from './pages/Alerts';
 import AdminPanel from './pages/AdminPanel';
+import UserDetails from './pages/UserDetails';
 import DigitalTwin from './pages/DigitalTwin';
 import Sustainability from './pages/Sustainability';
 import OperationsPlanner from './pages/OperationsPlanner';
@@ -23,6 +24,7 @@ export const routes = [
   { path: '/financials', element: <Financials /> },
   { path: '/alerts', element: <Alerts /> },
   { path: '/admin', element: <AdminPanel />, adminOnly: true },
+  { path: '/user-details', element: <UserDetails />, adminOnly: true },
   { path: '/digital-twin', element: <DigitalTwin /> },
   { path: '/sustainability', element: <Sustainability /> },
 ];

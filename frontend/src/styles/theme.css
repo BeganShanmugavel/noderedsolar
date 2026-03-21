@@ -198,3 +198,22 @@ main { min-width: 0; display: grid; gap: 14px; }
   display: flex;
   gap: 8px;
 }
+
+.metrics-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 980px;
+}
+
+.metrics-table th,
+.metrics-table td {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  padding: 10px;
+  font-size: 13px;
+  text-align: left;
+}
+
+.metrics-table thead th {
+  background: rgba(15, 23, 42, 0.65);
+  color: var(--text);
+}

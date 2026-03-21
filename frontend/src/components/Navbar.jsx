@@ -12,6 +12,7 @@ const links = [
 
 export default function Navbar({ onToggleSidebar }) {
   const { user, logout } = useAuth();
+  const isAdmin = user?.role === 'admin';
   return (
     <header className="glass top-header">
       <div className="brand-row">
@@ -26,6 +27,8 @@ export default function Navbar({ onToggleSidebar }) {
         {links.map(([label, path]) => (
           <Link key={path} to={path} className="nav-link">{label}</Link>
         ))}
+        {isAdmin && <Link to="/admin" className="nav-link">User Registration</Link>}
+        {isAdmin && <Link to="/user-details" className="nav-link">User Details</Link>}
         <span className="badge">{user?.role || 'guest'}</span>
         <button className="btn-primary" onClick={logout}>Logout</button>
       </nav>

@@ -24,7 +24,8 @@ export default function Sidebar({ mobileOpen = false, onNavigate = () => {} }) {
       {items.map(([label, path]) => (
         <Link key={path} to={path} className="nav-link" onClick={onNavigate}>{label}</Link>
       ))}
-      {user?.role === 'admin' && <Link to="/admin" onClick={onNavigate} className="nav-link admin-link">Admin Panel</Link>}
+      {user?.role === 'admin' && <Link to="/admin" onClick={onNavigate} className="nav-link admin-link">User Registration</Link>}
+      {user?.role === 'admin' && <Link to="/user-details" onClick={onNavigate} className="nav-link admin-link">User Details</Link>}
     </aside>
   );
 }
