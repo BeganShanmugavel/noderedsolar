@@ -8,7 +8,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 JWT_SECRET = os.getenv('JWT_SECRET', 'solar-secret')
 JWT_ALGO = 'HS256'
-JWT_EXP_HOURS = int(os.getenv('JWT_EXP_HOURS', '12'))
+JWT_EXP_HOURS = int(os.getenv('JWT_EXP_HOURS', '168'))
 
 
 def hash_password(password: str) -> str:

@@ -2,22 +2,39 @@ import { createContext, useContext, useMemo, useState } from 'react';
 
 const AuthContext = createContext(null);
 
+function isTokenExpired(token) {
+  if (!token) return true;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const expMs = (payload.exp || 0) * 1000;
+    return Date.now() >= expMs;
+  } catch {
+    return true;
+  }
+}
+
 function safeParseUser(raw) {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === 'object') return parsed;
     return null;
-  } catch (err) {
-    console.warn('Invalid user data in localStorage, resetting session.');
+  } catch {
     localStorage.removeItem('user');
-    localStorage.removeItem('token');
     return null;
   }
 }
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => safeParseUser(localStorage.getItem('user')));
+  const [user, setUser] = useState(() => {
+    const token = localStorage.getItem('token');
+    if (isTokenExpired(token)) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      return null;
+    }
+    return safeParseUser(localStorage.getItem('user'));
+  });
 
   const value = useMemo(() => ({
     user,

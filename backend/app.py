@@ -49,6 +49,34 @@ def hydrate_latest_telemetry(row):
     return row
 
 
+
+
+def build_weather_analysis(weather):
+    cloud = weather.get('cloud_cover', 0)
+    temp = weather.get('temperature', 0)
+    radiation = weather.get('solar_radiation_estimation', 0)
+
+    if cloud > 70:
+        impact = 'High cloud cover likely reducing generation output.'
+    elif cloud > 40:
+        impact = 'Moderate cloud cover causing partial generation loss.'
+    else:
+        impact = 'Weather is favorable for strong generation performance.'
+
+    if temp > 38:
+        thermal = 'High temperature may cause thermal derating.'
+    elif temp < 18:
+        thermal = 'Cooler temperature supports stable panel efficiency.'
+    else:
+        thermal = 'Temperature is in normal operating range.'
+
+    return {
+        'weather_impact_summary': impact,
+        'thermal_note': thermal,
+        'radiation_level': radiation,
+    }
+
+
 def compute_advanced_metrics(window, predicted):
     latest = window[-1]
     generation = [r['actual_generation'] for r in window]
@@ -88,7 +116,7 @@ def bootstrap_admin():
         if cur.fetchone():
             return jsonify({'error': 'Admin already exists'}), 409
         cur.execute(
-            'INSERT INTO users(name,email,password_hash,role) VALUES (%s,%s,%s,%s)',
+            'INSERT INTO users(name,email,password_hash,phone,designation,role) VALUES (%s,%s,%s,%s,%s,%s)',
             (
                 body.get('name', 'Platform Admin'),
                 body['email'],
@@ -121,7 +149,7 @@ def reset_admin():
             return jsonify({'status': 'admin_password_reset', 'email': email})
 
         cur.execute(
-            'INSERT INTO users(name,email,password_hash,role) VALUES (%s,%s,%s,%s)',
+            'INSERT INTO users(name,email,password_hash,phone,designation,role) VALUES (%s,%s,%s,%s,%s,%s)',
             ('Platform Admin', email, hash_password(new_password), 'admin'),
         )
 
@@ -136,14 +164,14 @@ def login():
         return jsonify({'error': 'email and password required'}), 400
 
     with cursor() as cur:
-        cur.execute('SELECT id, name, email, password_hash, role FROM users WHERE email=%s', (email,))
+        cur.execute('SELECT id, name, email, password_hash, phone, designation, role FROM users WHERE email=%s', (email,))
         user = cur.fetchone()
 
     if not user or not verify_password(password, user['password_hash']):
         return jsonify({'error': 'Invalid credentials'}), 401
 
     token = generate_token(user)
-    return jsonify({'token': token, 'user': {'id': user['id'], 'name': user['name'], 'email': user['email'], 'role': user['role']}})
+    return jsonify({'token': token, 'user': {'id': user['id'], 'name': user['name'], 'email': user['email'], 'phone': user.get('phone'), 'designation': user.get('designation'), 'role': user['role']}})
 
 
 
@@ -165,14 +193,14 @@ def bootstrap_demo_users():
         if existing_admin:
             cur.execute('UPDATE users SET password_hash=%s, role=%s WHERE id=%s', (hash_password(admin_password), 'admin', existing_admin['id']))
         else:
-            cur.execute('INSERT INTO users(name,email,password_hash,role) VALUES (%s,%s,%s,%s)', ('Demo Admin', admin_email, hash_password(admin_password), 'admin'))
+            cur.execute('INSERT INTO users(name,email,password_hash,phone,designation,role) VALUES (%s,%s,%s,%s,%s,%s)', ('Demo Admin', admin_email, hash_password(admin_password), 'admin'))
 
         cur.execute('SELECT id FROM users WHERE email=%s', (user_email,))
         existing_user = cur.fetchone()
         if existing_user:
             cur.execute('UPDATE users SET password_hash=%s, role=%s WHERE id=%s', (hash_password(user_password), 'user', existing_user['id']))
         else:
-            cur.execute('INSERT INTO users(name,email,password_hash,role) VALUES (%s,%s,%s,%s)', ('Demo User', user_email, hash_password(user_password), 'user'))
+            cur.execute('INSERT INTO users(name,email,password_hash,phone,designation,role) VALUES (%s,%s,%s,%s,%s,%s)', ('Demo User', user_email, hash_password(user_password), 'user'))
 
     return jsonify({'status': 'demo_users_ready', 'admin_email': admin_email, 'user_email': user_email})
 
@@ -190,8 +218,8 @@ def register_user():
         if cur.fetchone():
             return jsonify({'error': 'User already exists'}), 409
         cur.execute(
-            'INSERT INTO users(name,email,password_hash,role) VALUES (%s,%s,%s,%s)',
-            (body['name'], body['email'], hash_password(body['password']), body.get('role', 'user')),
+            'INSERT INTO users(name,email,password_hash,phone,designation,role) VALUES (%s,%s,%s,%s,%s,%s)',
+            (body['name'], body['email'], hash_password(body['password']), body.get('phone'), body.get('designation'), body.get('role', 'user')),
         )
     return jsonify({'status': 'user_created'}), 201
 
@@ -250,6 +278,8 @@ def dashboard(site_identifier):
         cur.execute('SELECT weather_location FROM plants WHERE site_identifier=%s', (site_identifier,))
         plant = cur.fetchone() or {'weather_location': 'Unknown'}
 
+    weather_data = get_weather_snapshot(plant['weather_location'])
+
     return jsonify(
         {
             'latest': latest_hydrated,
@@ -262,7 +292,8 @@ def dashboard(site_identifier):
             'financials': financial,
             'advanced_metrics': advanced_metrics,
             'ai_insights': ai_insights,
-            'weather': get_weather_snapshot(plant['weather_location']),
+            'weather': weather_data,
+            'weather_analysis': build_weather_analysis(weather_data),
             'alerts': alerts,
             'carbon_offset_kg': round(window[-1]['actual_generation'] * 0.7, 2),
         }

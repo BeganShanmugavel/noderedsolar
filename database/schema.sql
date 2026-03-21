@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS solar_monitoring.users (
   name VARCHAR(120) NOT NULL,
   email VARCHAR(160) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
+  phone VARCHAR(25),
+  designation VARCHAR(80),
   role ENUM('admin', 'user') DEFAULT 'user',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

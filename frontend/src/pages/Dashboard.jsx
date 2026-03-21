@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import DashboardCards from '../components/DashboardCards';
 import ChartPanel from '../components/ChartPanel';
 import { getDashboard } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  const { user } = useAuth();
 
   useEffect(() => {
     getDashboard().then(setData).catch((e) => setError(e.message));
@@ -31,21 +33,22 @@ export default function Dashboard() {
     <section>
       <div className="hero-banner glass">
         <h1>Industrial Solar Command Center</h1>
-        <p>Realtime operational intelligence with AI-backed reliability and maintenance foresight.</p>
+        <p>Realtime operational intelligence with weather-aware analysis.</p>
       </div>
-
       {error && <p className="error-msg">{error}</p>}
+      <div className="glass" style={{ marginTop: 12 }}>
+        <h3>User Details</h3>
+        <p><strong>Name:</strong> {user?.name || '--'} | <strong>Role:</strong> {user?.role || '--'}</p>
+        <p><strong>Email:</strong> {user?.email || '--'} | <strong>Phone:</strong> {user?.phone || '--'} | <strong>Designation:</strong> {user?.designation || '--'}</p>
+      </div>
       <DashboardCards stats={stats} />
-
       <div className="card-grid">
         <div className="glass card"><h3>Stability Score</h3><p>{data?.advanced_metrics?.stability_score ?? '--'}%</p></div>
         <div className="glass card"><h3>Utilization</h3><p>{data?.advanced_metrics?.utilization_percent ?? '--'}%</p></div>
-        <div className="glass card"><h3>Forecast Next Hour</h3><p>{data?.advanced_metrics?.forecast_next_hour_generation ?? '--'} kWh</p></div>
-        <div className="glass card"><h3>Weather</h3><p>{data?.weather?.location ?? '--'} / Cloud {data?.weather?.cloud_cover ?? '--'}%</p></div>
+        <div className="glass card"><h3>Weather Impact</h3><p>{data?.weather_analysis?.weather_impact_summary ?? '--'}</p></div>
+        <div className="glass card"><h3>Thermal Note</h3><p>{data?.weather_analysis?.thermal_note ?? '--'}</p></div>
       </div>
-
       <ChartPanel data={chartData} />
-
       <div className="glass chart-wrap">
         <h3>Live Alerts</h3>
         {(data?.alerts || []).length === 0 ? <p>No active alerts.</p> : (

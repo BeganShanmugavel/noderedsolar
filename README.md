@@ -91,6 +91,42 @@ Backend starts on `http://localhost:5000`.
 
 ---
 
+## 4.1) How to take weather data
+
+Weather is now fetched automatically from **Open-Meteo** using the plant's `weather_location` value saved during plant registration.
+
+### How it works
+
+1. Backend resolves the city/location text to latitude/longitude via Open-Meteo geocoding API.
+2. Backend fetches current:
+   - `temperature_2m`
+   - `cloud_cover`
+   - `shortwave_radiation`
+3. Dashboard API (`/api/dashboard/<site_identifier>`) includes this in:
+   - `weather`
+   - `weather_analysis`
+
+### Required input
+
+When creating a plant, set a real location string in `weather_location` (example: `Ahmedabad`, `Phoenix`, `Riyadh`).
+
+### Optional environment flags
+
+```bash
+export WEATHER_PROVIDER='open-meteo'     # default
+export WEATHER_HTTP_TIMEOUT='4'
+```
+
+For offline/demo mode:
+
+```bash
+export WEATHER_PROVIDER='stub'
+```
+
+In `stub` mode, backend returns generated weather values so the dashboard continues to operate without internet.
+
+---
+
 ## 5) MQTT Broker Setup (Mosquitto)
 
 Start Mosquitto broker (example):
