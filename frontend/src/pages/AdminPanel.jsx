@@ -67,7 +67,7 @@ export default function AdminPanel() {
   return (
     <div className="glass card">
       <h2>Admin User Registration</h2>
-      <p>Create user accounts with essential profile + plant details required for analysis.</p>
+      <p>Create user accounts with essential profile + plant details required for analysis. Sensor data simulation starts automatically after registration.</p>
       <form className="form-grid" onSubmit={submit}>
         <input placeholder="Full Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
         <input placeholder="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />

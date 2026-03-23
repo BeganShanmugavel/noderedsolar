@@ -127,7 +127,7 @@ In `stub` mode, backend returns generated weather values so the dashboard contin
 
 This project now uses an internal simulator (no Node-RED or MQTT required).
 
-When backend starts, it continuously writes simulated telemetry into DB for `INTERNAL_SIM_SITE`.
+When backend starts, it continuously writes simulated telemetry into DB for all registered plant sites. If no plants exist yet, it uses `INTERNAL_SIM_SITE` fallback.
 
 ---
 
@@ -194,7 +194,8 @@ curl -X POST http://localhost:5000/api/auth/reset-admin \
      - plant: site identifier, location, weather location, capacity (kW), panel count, panel type
    - On registration, backend also seeds recent telemetry points for the new site so dashboards are immediately usable.
    - Registration now returns immediate analysis preview (prediction, efficiency, anomaly, fault trend) from auto-seeded telemetry.
-   - Admin can also upload sensor telemetry CSV (`timestamp, irradiation, temperature, voltage, panel_count, actual_generation, site_identifier`) for analysis ingestion.
+   - Internal simulator then auto-generates telemetry continuously for registered user sites (no manual sensor storage/upload needed).
+   - Admin can still optionally upload sensor telemetry CSV (`timestamp, irradiation, temperature, voltage, panel_count, actual_generation, site_identifier`) for analysis ingestion.
    - From **User Details**, deleting a user also deletes that user's generated site telemetry and linked analytics data.
 4. Users then login only (no open self-registration).
 
