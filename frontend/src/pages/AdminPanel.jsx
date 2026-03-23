@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { registerUser } from '../services/api';
+import { registerUser, uploadSensorCsv } from '../services/api';
 
 export default function AdminPanel() {
   const [form, setForm] = useState({
@@ -16,13 +16,21 @@ export default function AdminPanel() {
     panel_type: '',
   });
   const [status, setStatus] = useState('');
+  const [csvStatus, setCsvStatus] = useState('');
+  const [csvSite, setCsvSite] = useState('');
+  const [csvFile, setCsvFile] = useState(null);
 
   const submit = async (e) => {
     e.preventDefault();
     setStatus('');
     try {
-      await registerUser(form);
-      setStatus('User and plant registered successfully by admin.');
+      const res = await registerUser(form);
+      const pred = res?.analysis_preview?.predicted_generation;
+      setStatus(
+        pred
+          ? `User registered. Auto telemetry seeded and analyzed. Predicted generation: ${Number(pred).toFixed(2)}`
+          : 'User and plant registered successfully by admin.'
+      );
       setForm({
         name: '',
         email: '',
@@ -38,6 +46,21 @@ export default function AdminPanel() {
       });
     } catch (err) {
       setStatus(err.message);
+    }
+  };
+
+  const submitCsv = async (e) => {
+    e.preventDefault();
+    setCsvStatus('');
+    if (!csvFile) {
+      setCsvStatus('Please choose a CSV file.');
+      return;
+    }
+    try {
+      const res = await uploadSensorCsv(csvSite, csvFile);
+      setCsvStatus(`CSV uploaded. Rows: ${res.rows_ingested}. Site: ${res.site_identifier}.`);
+    } catch (err) {
+      setCsvStatus(err.message);
     }
   };
 
@@ -63,6 +86,15 @@ export default function AdminPanel() {
         <button className="btn-primary" type="submit">Create Account</button>
       </form>
       {status && <p>{status}</p>}
+      <hr style={{ margin: '18px 0', opacity: 0.25 }} />
+      <h3>Sensor CSV Ingestion</h3>
+      <p>Upload sensor telemetry CSV and trigger analysis preview for the selected site.</p>
+      <form className="form-grid" onSubmit={submitCsv}>
+        <input placeholder="Site ID (optional if present in CSV)" value={csvSite} onChange={(e) => setCsvSite(e.target.value)} />
+        <input type="file" accept=".csv,text/csv" onChange={(e) => setCsvFile(e.target.files?.[0] || null)} required />
+        <button className="btn-primary" type="submit">Upload Sensor CSV</button>
+      </form>
+      {csvStatus && <p>{csvStatus}</p>}
     </div>
   );
 }

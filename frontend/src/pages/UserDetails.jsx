@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getAdminUserDetails } from '../services/api';
+import { deleteUserById, getAdminUserDetails } from '../services/api';
 
 export default function UserDetails() {
   const [payload, setPayload] = useState(null);
@@ -8,6 +8,20 @@ export default function UserDetails() {
   useEffect(() => {
     getAdminUserDetails().then(setPayload).catch((e) => setError(e.message));
   }, []);
+
+  const refresh = () => getAdminUserDetails().then(setPayload).catch((e) => setError(e.message));
+
+  const removeUser = async (row) => {
+    if (!row?.user_id) return;
+    const ok = window.confirm(`Delete user ${row.email} and generated site data?`);
+    if (!ok) return;
+    try {
+      await deleteUserById(row.user_id);
+      await refresh();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
 
   const summary = payload?.summary || {};
   const users = payload?.users || [];
@@ -42,12 +56,13 @@ export default function UserDetails() {
               <th>kW</th>
               <th>Panels</th>
               <th>Panel Type</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
             {users.length === 0 && (
               <tr>
-                <td colSpan={10}>No users available.</td>
+                <td colSpan={11}>No users available.</td>
               </tr>
             )}
             {users.map((row) => (
@@ -62,6 +77,13 @@ export default function UserDetails() {
                 <td>{row.capacity_kw ?? '--'}</td>
                 <td>{row.panel_count ?? '--'}</td>
                 <td>{row.panel_type || '--'}</td>
+                <td>
+                  {row.role === 'admin' ? (
+                    <span>Protected</span>
+                  ) : (
+                    <button className="btn-primary" onClick={() => removeUser(row)}>Delete</button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

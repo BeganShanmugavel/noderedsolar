@@ -1,4 +1,6 @@
 import json
+import csv
+import io
 from statistics import mean
 from datetime import datetime, timedelta
 from flask import Flask, jsonify, request
@@ -61,6 +63,69 @@ def demo_telemetry_window(site_identifier, points=25):
 def seed_site_telemetry(site_identifier, points=25):
     for row in demo_telemetry_window(site_identifier, points=points):
         persist_telemetry(row)
+
+
+def ensure_standby_accounts():
+    admin_email = 'admin@solar.local'
+    user_email = 'user@solar.local'
+    standby_site = 'STBY-1001'
+
+    with cursor(commit=True) as cur:
+        cur.execute('SELECT id FROM users WHERE email=%s', (admin_email,))
+        admin = cur.fetchone()
+        if admin:
+            cur.execute(
+                'UPDATE users SET role=%s, password_hash=%s WHERE id=%s',
+                ('admin', hash_password('Admin@123'), admin['id']),
+            )
+        else:
+            cur.execute(
+                'INSERT INTO users(name,email,password_hash,phone,designation,role) VALUES (%s,%s,%s,%s,%s,%s)',
+                ('Standby Admin', admin_email, hash_password('Admin@123'), None, None, 'admin'),
+            )
+
+        cur.execute('SELECT id FROM users WHERE email=%s', (user_email,))
+        user = cur.fetchone()
+        if user:
+            user_id = user['id']
+            cur.execute(
+                'UPDATE users SET role=%s, password_hash=%s WHERE id=%s',
+                ('user', hash_password('User@123'), user_id),
+            )
+        else:
+            cur.execute(
+                'INSERT INTO users(name,email,password_hash,phone,designation,role) VALUES (%s,%s,%s,%s,%s,%s)',
+                ('Standby User', user_email, hash_password('User@123'), None, None, 'user'),
+            )
+            user_id = cur.lastrowid
+
+        cur.execute('SELECT id FROM plants WHERE site_identifier=%s', (standby_site,))
+        if not cur.fetchone():
+            cur.execute(
+                '''INSERT INTO plants(site_identifier, location, capacity_kw, panel_count, panel_type, weather_location, owner_user_id)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s)''',
+                (standby_site, 'Standby Plant', 500.0, 120, 'Mono PERC', 'Ahmedabad', user_id),
+            )
+
+    with cursor() as cur:
+        cur.execute('SELECT COUNT(*) AS cnt FROM telemetry_logs WHERE site_identifier=%s', (standby_site,))
+        existing = cur.fetchone() or {'cnt': 0}
+    if not existing['cnt']:
+        seed_site_telemetry(standby_site, points=25)
+
+
+def to_float(value, default=0.0):
+    try:
+        return float(value)
+    except Exception:
+        return default
+
+
+def to_int(value, default=0):
+    try:
+        return int(float(value))
+    except Exception:
+        return default
 
 
 
@@ -282,7 +347,24 @@ def register_user():
             ),
         )
     seed_site_telemetry(body['site_identifier'], points=25)
-    return jsonify({'status': 'user_and_plant_created', 'telemetry_seeded': True}), 201
+    window = telemetry_window(body['site_identifier'])
+    predicted = make_prediction(window) or window[-1]['actual_generation']
+    diagnosis = diagnose_efficiency(window[-1]['actual_generation'], predicted)
+    anomaly = detect_anomaly(window)
+    efficiencies = [(r['actual_generation'] / max(predicted, 1)) * 100 for r in window]
+    fault = predict_fault(efficiencies)
+    return jsonify(
+        {
+            'status': 'user_and_plant_created',
+            'telemetry_seeded': True,
+            'analysis_preview': {
+                'predicted_generation': predicted,
+                'efficiency': diagnosis,
+                'anomaly': anomaly,
+                'fault_prediction': fault,
+            },
+        }
+    ), 201
 
 
 @app.post('/api/plants')
@@ -304,6 +386,65 @@ def register_plant():
             ),
         )
     return jsonify({'status': 'registered'}), 201
+
+
+@app.post('/api/sensors/upload-csv')
+@admin_required
+def upload_sensor_csv():
+    site_identifier = (request.form.get('site_identifier') or '').strip()
+    file = request.files.get('file')
+    if not file:
+        return jsonify({'error': 'CSV file required'}), 400
+
+    try:
+        content = file.read().decode('utf-8')
+    except Exception:
+        return jsonify({'error': 'Unable to read CSV file'}), 400
+
+    reader = csv.DictReader(io.StringIO(content))
+    ingested = 0
+    affected_site = site_identifier or None
+
+    for row in reader:
+        site = (row.get('site_identifier') or site_identifier or '').strip()
+        if not site:
+            continue
+        payload = {
+            'site_identifier': site,
+            'timestamp': row.get('timestamp') or datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+            'irradiation': to_float(row.get('irradiation')),
+            'temperature': to_float(row.get('temperature')),
+            'voltage': to_float(row.get('voltage')),
+            'panel_count': to_int(row.get('panel_count'), 0),
+            'actual_generation': to_float(row.get('actual_generation')),
+        }
+        persist_telemetry(payload)
+        ingested += 1
+        affected_site = site
+
+    if ingested == 0:
+        return jsonify({'error': 'No valid CSV rows to ingest'}), 400
+
+    window = telemetry_window(affected_site)
+    predicted = make_prediction(window) or window[-1]['actual_generation']
+    diagnosis = diagnose_efficiency(window[-1]['actual_generation'], predicted)
+    anomaly = detect_anomaly(window)
+    efficiencies = [(r['actual_generation'] / max(predicted, 1)) * 100 for r in window]
+    fault = predict_fault(efficiencies)
+
+    return jsonify(
+        {
+            'status': 'csv_ingested',
+            'rows_ingested': ingested,
+            'site_identifier': affected_site,
+            'analysis_preview': {
+                'predicted_generation': predicted,
+                'efficiency': diagnosis,
+                'anomaly': anomaly,
+                'fault_prediction': fault,
+            },
+        }
+    )
 
 
 @app.get('/api/admin/user-details')
@@ -348,6 +489,33 @@ def admin_user_details():
             'users': rows,
         }
     )
+
+
+@app.delete('/api/admin/user/<int:user_id>')
+@admin_required
+def delete_user_with_generated_data(user_id):
+    with cursor(commit=True) as cur:
+        cur.execute('SELECT id, role FROM users WHERE id=%s', (user_id,))
+        user = cur.fetchone()
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        if user.get('role') == 'admin':
+            return jsonify({'error': 'Admin deletion is blocked'}), 403
+
+        cur.execute('SELECT site_identifier FROM plants WHERE owner_user_id=%s', (user_id,))
+        plants = cur.fetchall() or []
+        sites = [p['site_identifier'] for p in plants if p.get('site_identifier')]
+
+        for site in sites:
+            cur.execute('DELETE FROM telemetry_logs WHERE site_identifier=%s', (site,))
+            cur.execute('DELETE FROM alerts WHERE site_identifier=%s', (site,))
+            cur.execute('DELETE FROM ai_analysis_logs WHERE site_identifier=%s', (site,))
+            cur.execute('DELETE FROM expenses WHERE site_identifier=%s', (site,))
+
+        cur.execute('DELETE FROM plants WHERE owner_user_id=%s', (user_id,))
+        cur.execute('DELETE FROM users WHERE id=%s', (user_id,))
+
+    return jsonify({'status': 'user_and_generated_data_deleted', 'deleted_sites': sites})
 
 
 @app.get('/api/dashboard/<site_identifier>')
@@ -434,6 +602,12 @@ def dashboard(site_identifier):
             'carbon_offset_kg': round(window[-1]['actual_generation'] * 0.7, 2),
             'served_site_identifier': site_identifier,
             'telemetry_source': telemetry_source,
+            'platform_status': {
+                'project_tier': 'industrial_prototype',
+                'lstm_mode': 'online_window_fit',
+                'window_points': len(window),
+                'last_telemetry_timestamp': window[-1].get('timestamp'),
+            },
         }
     )
 
@@ -459,5 +633,6 @@ def get_alerts(site_identifier):
 
 
 if __name__ == '__main__':
+    ensure_standby_accounts()
     start_internal_simulator()
     app.run(host='0.0.0.0', port=5000, debug=True)

@@ -56,6 +56,24 @@ export default function Dashboard() {
       </div>
       <DashboardCards stats={stats} />
       <div className="card-grid">
+        <div className="glass card">
+          <h3>Platform Tier</h3>
+          <p>{data?.platform_status?.project_tier || 'industrial_prototype'}</p>
+        </div>
+        <div className="glass card">
+          <h3>Telemetry Source</h3>
+          <p>{data?.telemetry_source || '--'}</p>
+        </div>
+        <div className="glass card">
+          <h3>LSTM Mode</h3>
+          <p>{data?.platform_status?.lstm_mode || '--'}</p>
+        </div>
+        <div className="glass card">
+          <h3>Window Points</h3>
+          <p>{data?.platform_status?.window_points ?? '--'}</p>
+        </div>
+      </div>
+      <div className="card-grid">
         <div className="glass card"><h3>Stability Score</h3><p>{data?.advanced_metrics?.stability_score ?? '--'}%</p></div>
         <div className="glass card"><h3>Utilization</h3><p>{data?.advanced_metrics?.utilization_percent ?? '--'}%</p></div>
         <div className="glass card"><h3>Weather Impact</h3><p>{data?.weather_analysis?.weather_impact_summary ?? '--'}</p></div>
