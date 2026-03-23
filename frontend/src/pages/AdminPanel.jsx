@@ -24,8 +24,13 @@ export default function AdminPanel() {
     e.preventDefault();
     setStatus('');
     try {
-      await registerUser(form);
-      setStatus('User and plant registered successfully by admin.');
+      const res = await registerUser(form);
+      const pred = res?.analysis_preview?.predicted_generation;
+      setStatus(
+        pred
+          ? `User registered. Auto telemetry seeded and analyzed. Predicted generation: ${Number(pred).toFixed(2)}`
+          : 'User and plant registered successfully by admin.'
+      );
       setForm({
         name: '',
         email: '',

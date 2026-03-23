@@ -347,7 +347,24 @@ def register_user():
             ),
         )
     seed_site_telemetry(body['site_identifier'], points=25)
-    return jsonify({'status': 'user_and_plant_created', 'telemetry_seeded': True}), 201
+    window = telemetry_window(body['site_identifier'])
+    predicted = make_prediction(window) or window[-1]['actual_generation']
+    diagnosis = diagnose_efficiency(window[-1]['actual_generation'], predicted)
+    anomaly = detect_anomaly(window)
+    efficiencies = [(r['actual_generation'] / max(predicted, 1)) * 100 for r in window]
+    fault = predict_fault(efficiencies)
+    return jsonify(
+        {
+            'status': 'user_and_plant_created',
+            'telemetry_seeded': True,
+            'analysis_preview': {
+                'predicted_generation': predicted,
+                'efficiency': diagnosis,
+                'anomaly': anomaly,
+                'fault_prediction': fault,
+            },
+        }
+    ), 201
 
 
 @app.post('/api/plants')
@@ -472,6 +489,33 @@ def admin_user_details():
             'users': rows,
         }
     )
+
+
+@app.delete('/api/admin/user/<int:user_id>')
+@admin_required
+def delete_user_with_generated_data(user_id):
+    with cursor(commit=True) as cur:
+        cur.execute('SELECT id, role FROM users WHERE id=%s', (user_id,))
+        user = cur.fetchone()
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        if user.get('role') == 'admin':
+            return jsonify({'error': 'Admin deletion is blocked'}), 403
+
+        cur.execute('SELECT site_identifier FROM plants WHERE owner_user_id=%s', (user_id,))
+        plants = cur.fetchall() or []
+        sites = [p['site_identifier'] for p in plants if p.get('site_identifier')]
+
+        for site in sites:
+            cur.execute('DELETE FROM telemetry_logs WHERE site_identifier=%s', (site,))
+            cur.execute('DELETE FROM alerts WHERE site_identifier=%s', (site,))
+            cur.execute('DELETE FROM ai_analysis_logs WHERE site_identifier=%s', (site,))
+            cur.execute('DELETE FROM expenses WHERE site_identifier=%s', (site,))
+
+        cur.execute('DELETE FROM plants WHERE owner_user_id=%s', (user_id,))
+        cur.execute('DELETE FROM users WHERE id=%s', (user_id,))
+
+    return jsonify({'status': 'user_and_generated_data_deleted', 'deleted_sites': sites})
 
 
 @app.get('/api/dashboard/<site_identifier>')

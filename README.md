@@ -193,7 +193,9 @@ curl -X POST http://localhost:5000/api/auth/reset-admin \
      - user: name, email, password, phone, role
      - plant: site identifier, location, weather location, capacity (kW), panel count, panel type
    - On registration, backend also seeds recent telemetry points for the new site so dashboards are immediately usable.
+   - Registration now returns immediate analysis preview (prediction, efficiency, anomaly, fault trend) from auto-seeded telemetry.
    - Admin can also upload sensor telemetry CSV (`timestamp, irradiation, temperature, voltage, panel_count, actual_generation, site_identifier`) for analysis ingestion.
+   - From **User Details**, deleting a user also deletes that user's generated site telemetry and linked analytics data.
 4. Users then login only (no open self-registration).
 
 ---

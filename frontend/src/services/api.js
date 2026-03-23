@@ -76,3 +76,10 @@ export async function uploadSensorCsv(siteIdentifier, file) {
     body: form,
   });
 }
+
+export async function deleteUserById(userId) {
+  return apiFetch(`/admin/user/${userId}`, {
+    method: 'DELETE',
+    headers: { ...headers() },
+  });
+}
