@@ -1,6 +1,5 @@
 import json
-import paho.mqtt.client as mqtt
-from config import Config
+
 from db import cursor
 
 
@@ -32,28 +31,3 @@ def persist_telemetry(data):
                )''',
             (site, site),
         )
-
-
-def on_connect(client, userdata, flags, rc):
-    client.subscribe(Config.MQTT_TOPIC)
-
-
-def on_message(client, userdata, msg):
-    try:
-        payload = json.loads(msg.payload.decode())
-        persist_telemetry(payload)
-    except Exception as exc:
-        print(f'MQTT message handling error: {exc}')
-
-
-def start_listener():
-    client = mqtt.Client()
-    client.on_connect = on_connect
-    client.on_message = on_message
-    try:
-        client.connect(Config.MQTT_BROKER, Config.MQTT_PORT, 60)
-        client.loop_start()
-        return client
-    except Exception as exc:
-        print(f'MQTT listener unavailable: {exc}')
-        return None

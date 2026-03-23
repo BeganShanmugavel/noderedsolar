@@ -1,7 +1,7 @@
 const checklist = [
   'Verify inverter room temperature and ventilation',
   'Inspect panel strings flagged in heatmap',
-  'Confirm MQTT telemetry continuity for all sites',
+  'Confirm simulator telemetry continuity for all sites',
   'Review unresolved maintenance alerts',
   'Update daily shift handover notes',
 ];

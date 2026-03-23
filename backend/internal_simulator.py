@@ -4,7 +4,7 @@ from datetime import datetime
 from random import randint, uniform
 
 from config import Config
-from mqtt_listener import persist_telemetry
+from telemetry_store import persist_telemetry
 
 
 def _simulate_once(site_identifier):

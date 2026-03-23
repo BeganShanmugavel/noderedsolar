@@ -6,7 +6,7 @@ from flask_cors import CORS
 
 from auth import admin_required, token_required, generate_token, hash_password, verify_password
 from db import cursor
-from mqtt_listener import start_listener, persist_telemetry
+from telemetry_store import persist_telemetry
 from internal_simulator import start_internal_simulator
 from ai_engine import make_prediction, diagnose_efficiency
 from anomaly_detection import detect_anomaly
@@ -16,7 +16,6 @@ from panel_health import analyze_panel_health
 from financials import calculate_financials
 from weather_service import get_weather_snapshot
 from advanced_ai import derive_ai_insights
-from config import Config
 
 app = Flask(__name__)
 CORS(app)
@@ -369,7 +368,7 @@ def dashboard(site_identifier):
             site_identifier = latest['site_identifier']
             window = telemetry_window(site_identifier)
         else:
-            # Keep dashboard usable even before Node-RED starts publishing.
+            # Keep dashboard usable even before simulator data starts populating DB.
             site_identifier = 'DEMO-SITE'
             window = demo_telemetry_window(site_identifier)
             telemetry_source = 'demo-fallback'
@@ -460,13 +459,5 @@ def get_alerts(site_identifier):
 
 
 if __name__ == '__main__':
-    telemetry_mode = Config.TELEMETRY_MODE.lower()
-    if telemetry_mode == 'internal':
-        start_internal_simulator()
-    elif telemetry_mode == 'mqtt':
-        start_listener()
-    else:
-        mqtt_client = start_listener()
-        if not mqtt_client:
-            start_internal_simulator()
+    start_internal_simulator()
     app.run(host='0.0.0.0', port=5000, debug=True)

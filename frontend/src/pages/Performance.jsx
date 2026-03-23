@@ -25,7 +25,7 @@ export default function Performance() {
     <section>
       <div className="hero-banner glass">
         <h1>Plant Performance</h1>
-        <p>Realtime performance derived from Node-RED simulator telemetry windows.</p>
+        <p>Realtime performance derived from internal simulator telemetry windows.</p>
       </div>
       {error && <p className="error-msg">{error}</p>}
       <div className="card-grid">
