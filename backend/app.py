@@ -1,5 +1,6 @@
 import json
 from statistics import mean
+from datetime import datetime, timedelta
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
@@ -30,6 +31,30 @@ def telemetry_window(site_identifier):
         )
         rows = cur.fetchall()
     return list(reversed(rows))
+
+
+def demo_telemetry_window(site_identifier, points=25):
+    now = datetime.utcnow()
+    rows = []
+    for i in range(points):
+        ts = now - timedelta(minutes=(points - i))
+        irradiation = 620 + (i % 7) * 18
+        temperature = 31 + (i % 5) * 0.7
+        voltage = 420 + (i % 6) * 2
+        generation = round(max(25, irradiation * 0.07 - temperature * 0.15), 2)
+        rows.append(
+            {
+                'site_identifier': site_identifier,
+                'timestamp': ts.strftime('%Y-%m-%d %H:%M:%S'),
+                'irradiation': irradiation,
+                'temperature': round(temperature, 2),
+                'voltage': round(voltage, 2),
+                'panel_count': 120,
+                'actual_generation': generation,
+                'raw_payload': None,
+            }
+        )
+    return rows
 
 
 
@@ -321,6 +346,7 @@ def admin_user_details():
 @app.get('/api/dashboard/<site_identifier>')
 @token_required
 def dashboard(site_identifier):
+    telemetry_source = 'database'
     window = telemetry_window(site_identifier)
     if not window:
         with cursor() as cur:
@@ -331,10 +357,14 @@ def dashboard(site_identifier):
                    LIMIT 1'''
             )
             latest = cur.fetchone()
-        if not latest:
-            return jsonify({'error': 'No telemetry found'}), 404
-        site_identifier = latest['site_identifier']
-        window = telemetry_window(site_identifier)
+        if latest:
+            site_identifier = latest['site_identifier']
+            window = telemetry_window(site_identifier)
+        else:
+            # Keep dashboard usable even before Node-RED starts publishing.
+            site_identifier = 'DEMO-SITE'
+            window = demo_telemetry_window(site_identifier)
+            telemetry_source = 'demo-fallback'
 
     predicted = make_prediction(window) or window[-1]['actual_generation']
     diagnosis = diagnose_efficiency(window[-1]['actual_generation'], predicted)
@@ -396,6 +426,7 @@ def dashboard(site_identifier):
             'alerts': alerts,
             'carbon_offset_kg': round(window[-1]['actual_generation'] * 0.7, 2),
             'served_site_identifier': site_identifier,
+            'telemetry_source': telemetry_source,
         }
     )
 
