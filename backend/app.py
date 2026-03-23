@@ -1,4 +1,6 @@
 import json
+import csv
+import io
 from statistics import mean
 from datetime import datetime, timedelta
 from flask import Flask, jsonify, request
@@ -110,6 +112,20 @@ def ensure_standby_accounts():
         existing = cur.fetchone() or {'cnt': 0}
     if not existing['cnt']:
         seed_site_telemetry(standby_site, points=25)
+
+
+def to_float(value, default=0.0):
+    try:
+        return float(value)
+    except Exception:
+        return default
+
+
+def to_int(value, default=0):
+    try:
+        return int(float(value))
+    except Exception:
+        return default
 
 
 
@@ -353,6 +369,65 @@ def register_plant():
             ),
         )
     return jsonify({'status': 'registered'}), 201
+
+
+@app.post('/api/sensors/upload-csv')
+@admin_required
+def upload_sensor_csv():
+    site_identifier = (request.form.get('site_identifier') or '').strip()
+    file = request.files.get('file')
+    if not file:
+        return jsonify({'error': 'CSV file required'}), 400
+
+    try:
+        content = file.read().decode('utf-8')
+    except Exception:
+        return jsonify({'error': 'Unable to read CSV file'}), 400
+
+    reader = csv.DictReader(io.StringIO(content))
+    ingested = 0
+    affected_site = site_identifier or None
+
+    for row in reader:
+        site = (row.get('site_identifier') or site_identifier or '').strip()
+        if not site:
+            continue
+        payload = {
+            'site_identifier': site,
+            'timestamp': row.get('timestamp') or datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+            'irradiation': to_float(row.get('irradiation')),
+            'temperature': to_float(row.get('temperature')),
+            'voltage': to_float(row.get('voltage')),
+            'panel_count': to_int(row.get('panel_count'), 0),
+            'actual_generation': to_float(row.get('actual_generation')),
+        }
+        persist_telemetry(payload)
+        ingested += 1
+        affected_site = site
+
+    if ingested == 0:
+        return jsonify({'error': 'No valid CSV rows to ingest'}), 400
+
+    window = telemetry_window(affected_site)
+    predicted = make_prediction(window) or window[-1]['actual_generation']
+    diagnosis = diagnose_efficiency(window[-1]['actual_generation'], predicted)
+    anomaly = detect_anomaly(window)
+    efficiencies = [(r['actual_generation'] / max(predicted, 1)) * 100 for r in window]
+    fault = predict_fault(efficiencies)
+
+    return jsonify(
+        {
+            'status': 'csv_ingested',
+            'rows_ingested': ingested,
+            'site_identifier': affected_site,
+            'analysis_preview': {
+                'predicted_generation': predicted,
+                'efficiency': diagnosis,
+                'anomaly': anomaly,
+                'fault_prediction': fault,
+            },
+        }
+    )
 
 
 @app.get('/api/admin/user-details')

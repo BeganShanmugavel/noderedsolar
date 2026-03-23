@@ -65,3 +65,14 @@ export async function getSiteAlerts(site = 'SOFT-1001') {
 export async function getAdminUserDetails() {
   return apiFetch('/admin/user-details', { headers: headers() });
 }
+
+export async function uploadSensorCsv(siteIdentifier, file) {
+  const form = new FormData();
+  form.append('site_identifier', siteIdentifier || '');
+  form.append('file', file);
+  return apiFetch('/sensors/upload-csv', {
+    method: 'POST',
+    headers: { ...headers() },
+    body: form,
+  });
+}
