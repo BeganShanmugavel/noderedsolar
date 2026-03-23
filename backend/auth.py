@@ -26,7 +26,8 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 def generate_token(user: dict) -> str:
     payload = {
-        'sub': user['id'],
+        # JWT subject should be a string per RFC 7519 to avoid decode validation failures.
+        'sub': str(user['id']),
         'email': user['email'],
         'role': user['role'],
         'exp': datetime.utcnow() + timedelta(hours=JWT_EXP_HOURS),
