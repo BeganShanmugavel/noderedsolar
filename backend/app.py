@@ -6,7 +6,8 @@ from flask_cors import CORS
 
 from auth import admin_required, token_required, generate_token, hash_password, verify_password
 from db import cursor
-from mqtt_listener import start_listener
+from telemetry_store import persist_telemetry
+from internal_simulator import start_internal_simulator
 from ai_engine import make_prediction, diagnose_efficiency
 from anomaly_detection import detect_anomaly
 from fault_prediction import predict_fault
@@ -55,6 +56,11 @@ def demo_telemetry_window(site_identifier, points=25):
             }
         )
     return rows
+
+
+def seed_site_telemetry(site_identifier, points=25):
+    for row in demo_telemetry_window(site_identifier, points=points):
+        persist_telemetry(row)
 
 
 
@@ -275,7 +281,8 @@ def register_user():
                 user_id,
             ),
         )
-    return jsonify({'status': 'user_and_plant_created'}), 201
+    seed_site_telemetry(body['site_identifier'], points=25)
+    return jsonify({'status': 'user_and_plant_created', 'telemetry_seeded': True}), 201
 
 
 @app.post('/api/plants')
@@ -361,7 +368,7 @@ def dashboard(site_identifier):
             site_identifier = latest['site_identifier']
             window = telemetry_window(site_identifier)
         else:
-            # Keep dashboard usable even before Node-RED starts publishing.
+            # Keep dashboard usable even before simulator data starts populating DB.
             site_identifier = 'DEMO-SITE'
             window = demo_telemetry_window(site_identifier)
             telemetry_source = 'demo-fallback'
@@ -452,5 +459,5 @@ def get_alerts(site_identifier):
 
 
 if __name__ == '__main__':
-    start_listener()
+    start_internal_simulator()
     app.run(host='0.0.0.0', port=5000, debug=True)
