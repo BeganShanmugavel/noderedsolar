@@ -33,7 +33,19 @@ def telemetry_window(site_identifier):
             (site_identifier,),
         )
         rows = cur.fetchall()
-    return list(reversed(rows))
+    normalized = []
+    for row in list(reversed(rows)):
+        normalized.append(
+            {
+                **row,
+                'irradiation': to_float(row.get('irradiation')),
+                'temperature': to_float(row.get('temperature')),
+                'voltage': to_float(row.get('voltage')),
+                'panel_count': to_int(row.get('panel_count'), 0),
+                'actual_generation': to_float(row.get('actual_generation')),
+            }
+        )
+    return normalized
 
 
 def demo_telemetry_window(site_identifier, points=25):
@@ -516,6 +528,45 @@ def delete_user_with_generated_data(user_id):
         cur.execute('DELETE FROM users WHERE id=%s', (user_id,))
 
     return jsonify({'status': 'user_and_generated_data_deleted', 'deleted_sites': sites})
+
+
+@app.post('/api/admin/clear-db-errors')
+@admin_required
+def clear_database_errors():
+    with cursor(commit=True) as cur:
+        # Remove malformed telemetry rows that break calculations.
+        cur.execute(
+            '''DELETE FROM telemetry_logs
+               WHERE site_identifier IS NULL
+                  OR timestamp IS NULL
+                  OR actual_generation IS NULL'''
+        )
+        deleted_bad_rows = cur.rowcount
+
+        # Reset transient analytics/alerts generated from potentially bad rows.
+        cur.execute('DELETE FROM alerts')
+        deleted_alerts = cur.rowcount
+        cur.execute('DELETE FROM ai_analysis_logs')
+        deleted_ai = cur.rowcount
+
+        cur.execute('SELECT site_identifier FROM plants')
+        sites = [r['site_identifier'] for r in (cur.fetchall() or []) if r.get('site_identifier')]
+
+    # Re-seed minimum telemetry window for each site for smooth dashboard fetch.
+    for site in sites:
+        window = telemetry_window(site)
+        if len(window) < 10:
+            seed_site_telemetry(site, points=25)
+
+    return jsonify(
+        {
+            'status': 'database_errors_cleared',
+            'deleted_bad_telemetry_rows': deleted_bad_rows,
+            'deleted_alert_rows': deleted_alerts,
+            'deleted_ai_analysis_rows': deleted_ai,
+            'sites_reseeded': sites,
+        }
+    )
 
 
 @app.get('/api/dashboard/<site_identifier>')

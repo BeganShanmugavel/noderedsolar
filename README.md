@@ -243,6 +243,11 @@ Then login and open dashboard.
   - Ensure backend is running (`python app.py`).
   - Confirm `INTERNAL_SIM_SITE` is set (or default `SOFT-1001`).
   - Wait ~5–10 seconds for simulator inserts.
+  - If malformed DB rows exist, clear/reseed analysis data:
+    ```bash
+    curl -X POST http://localhost:5000/api/admin/clear-db-errors \
+      -H "Authorization: Bearer <ADMIN_TOKEN>"
+    ```
 
 - **DB connection errors**
   - Confirm XAMPP MySQL is running (Control Panel).
