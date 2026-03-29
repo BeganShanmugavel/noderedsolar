@@ -72,6 +72,8 @@ export DB_PORT=3306
 export DB_USER=root
 export DB_PASSWORD=
 export DB_NAME=solar_monitoring
+export DB_ENGINE=auto              # auto | mysql | sqlite
+export SQLITE_PATH=solar_monitoring.db
 export JWT_SECRET='solar-secret'
 export INTERNAL_SIM_SITE='SOFT-1001'
 export INTERNAL_SIM_INTERVAL_SECONDS='5'
@@ -253,6 +255,10 @@ Then login and open dashboard.
   - Confirm XAMPP MySQL is running (Control Panel).
   - Confirm DB env vars (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`).
   - Ensure `solar_monitoring` database exists in phpMyAdmin.
+  - Or skip MySQL completely by using fallback:
+    ```bash
+    export DB_ENGINE=sqlite
+    ```
 
 - **401 unauthorized**
   - Login first and ensure token is stored in browser local storage.
