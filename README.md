@@ -128,6 +128,7 @@ In `stub` mode, backend returns generated weather values so the dashboard contin
 ## 5) Built-in Telemetry Simulator
 
 This project now uses an internal simulator (no Node-RED or MQTT required).
+The repository no longer requires or ships a Node-RED flow file.
 
 When backend starts, it continuously writes simulated telemetry into DB for all registered plant sites. If no plants exist yet, it uses `INTERNAL_SIM_SITE` fallback.
 

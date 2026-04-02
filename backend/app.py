@@ -24,15 +24,18 @@ CORS(app)
 
 
 def telemetry_window(site_identifier):
-    with cursor() as cur:
-        cur.execute(
-            '''SELECT * FROM telemetry_logs
-               WHERE site_identifier=%s
-               ORDER BY timestamp DESC
-               LIMIT 25''',
-            (site_identifier,),
-        )
-        rows = cur.fetchall()
+    try:
+        with cursor() as cur:
+            cur.execute(
+                '''SELECT * FROM telemetry_logs
+                   WHERE site_identifier=%s
+                   ORDER BY timestamp DESC
+                   LIMIT 25''',
+                (site_identifier,),
+            )
+            rows = cur.fetchall()
+    except Exception:
+        return []
     normalized = []
     for row in list(reversed(rows)):
         normalized.append(
@@ -591,48 +594,74 @@ def dashboard(site_identifier):
             site_identifier = 'DEMO-SITE'
             window = demo_telemetry_window(site_identifier)
             telemetry_source = 'demo-fallback'
+    warning = None
+    try:
+        predicted = make_prediction(window) or window[-1]['actual_generation']
+        diagnosis = diagnose_efficiency(window[-1]['actual_generation'], predicted)
+        anomaly = detect_anomaly(window)
 
-    predicted = make_prediction(window) or window[-1]['actual_generation']
-    diagnosis = diagnose_efficiency(window[-1]['actual_generation'], predicted)
-    anomaly = detect_anomaly(window)
+        efficiencies = []
+        for row in window:
+            local_pred = max(row['actual_generation'], 1)
+            efficiencies.append((row['actual_generation'] / local_pred) * 100)
 
-    efficiencies = []
-    for row in window:
-        local_pred = max(row['actual_generation'], 1)
-        efficiencies.append((row['actual_generation'] / local_pred) * 100)
+        fault = predict_fault(efficiencies)
+        latest_hydrated = hydrate_latest_telemetry(window[-1])
+        health = analyze_panel_health(latest_hydrated)
+        financial = calculate_financials(window[-1]['actual_generation'])
+        advanced_metrics = compute_advanced_metrics(window, predicted)
+        ai_insights = derive_ai_insights(window)
 
-    fault = predict_fault(efficiencies)
-    latest_hydrated = hydrate_latest_telemetry(window[-1])
-    health = analyze_panel_health(latest_hydrated)
-    financial = calculate_financials(window[-1]['actual_generation'])
-    advanced_metrics = compute_advanced_metrics(window, predicted)
-    ai_insights = derive_ai_insights(window)
+        alerts = []
+        if anomaly['is_anomaly']:
+            alerts.append(create_alert(site_identifier, 'Anomaly', 'Abnormal telemetry detected', 'Critical'))
+        if fault:
+            alerts.append(create_alert(site_identifier, 'Fault Prediction', fault, 'Critical'))
+        if diagnosis['diagnosis'] == 'Panel Soiling':
+            alerts.append(create_alert(site_identifier, 'Maintenance', 'Panel cleaning required', 'Medium'))
 
-    alerts = []
-    if anomaly['is_anomaly']:
-        alerts.append(create_alert(site_identifier, 'Anomaly', 'Abnormal telemetry detected', 'Critical'))
-    if fault:
-        alerts.append(create_alert(site_identifier, 'Fault Prediction', fault, 'Critical'))
-    if diagnosis['diagnosis'] == 'Panel Soiling':
-        alerts.append(create_alert(site_identifier, 'Maintenance', 'Panel cleaning required', 'Medium'))
+        with cursor() as cur:
+            cur.execute(
+                '''SELECT site_identifier, location, capacity_kw, panel_count, panel_type, weather_location
+                   FROM plants
+                   WHERE site_identifier=%s''',
+                (site_identifier,),
+            )
+            plant = cur.fetchone() or {
+                'site_identifier': site_identifier,
+                'location': 'Unknown',
+                'capacity_kw': None,
+                'panel_count': None,
+                'panel_type': 'Unknown',
+                'weather_location': 'Unknown',
+            }
 
-    with cursor() as cur:
-        cur.execute(
-            '''SELECT site_identifier, location, capacity_kw, panel_count, panel_type, weather_location
-               FROM plants
-               WHERE site_identifier=%s''',
-            (site_identifier,),
-        )
-        plant = cur.fetchone() or {
+        weather_data = get_weather_snapshot(plant['weather_location'])
+    except Exception as exc:
+        # Never hard-fail dashboard fetch; keep UI functional with synthetic fallback.
+        warning = str(exc)
+        site_identifier = site_identifier or 'DEMO-SITE'
+        telemetry_source = 'demo-fallback'
+        window = demo_telemetry_window(site_identifier)
+        predicted = window[-1]['actual_generation']
+        diagnosis = diagnose_efficiency(window[-1]['actual_generation'], predicted)
+        anomaly = {'is_anomaly': False}
+        fault = None
+        latest_hydrated = hydrate_latest_telemetry(window[-1])
+        health = analyze_panel_health(latest_hydrated)
+        financial = calculate_financials(window[-1]['actual_generation'])
+        advanced_metrics = compute_advanced_metrics(window, predicted)
+        ai_insights = derive_ai_insights(window)
+        alerts = []
+        plant = {
             'site_identifier': site_identifier,
-            'location': 'Unknown',
+            'location': 'Fallback',
             'capacity_kw': None,
             'panel_count': None,
             'panel_type': 'Unknown',
             'weather_location': 'Unknown',
         }
-
-    weather_data = get_weather_snapshot(plant['weather_location'])
+        weather_data = get_weather_snapshot('Unknown')
 
     return jsonify(
         {
@@ -659,6 +688,7 @@ def dashboard(site_identifier):
                 'window_points': len(window),
                 'last_telemetry_timestamp': window[-1].get('timestamp'),
             },
+            'warning': warning,
         }
     )
 
